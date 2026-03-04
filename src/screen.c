@@ -836,19 +836,21 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
   if(new_row >= 0 && bufidx == BUFIDX_PRIMARY &&
       ((screen->callbacks && screen->callbacks->sb_popline4) ||
        (screen->callbacks && screen->callbacks->sb_popline))) {
+    /* Use max of old_cols and new_cols to handle scrollback lines stored at different widths */
+    int pop_cols = old_cols > new_cols ? old_cols : new_cols;
     while(new_row >= 0) {
       bool continuation = false;
       int popped = 0;
       if(screen->callbacks && screen->callbacks->sb_popline4)
-        popped = (*screen->callbacks->sb_popline4)(old_cols, screen->sb_buffer, &continuation, screen->cbdata);
+        popped = (*screen->callbacks->sb_popline4)(pop_cols, screen->sb_buffer, &continuation, screen->cbdata);
       else if(screen->callbacks && screen->callbacks->sb_popline)
-        popped = (*screen->callbacks->sb_popline)(old_cols, screen->sb_buffer, screen->cbdata);
+        popped = (*screen->callbacks->sb_popline)(pop_cols, screen->sb_buffer, screen->cbdata);
 
       if(!popped)
         break;
 
-      ScreenCell *cells = vterm_allocator_malloc(screen->vt, sizeof(ScreenCell) * old_cols);
-      for(int col = 0; col < old_cols; col++) {
+      ScreenCell *cells = vterm_allocator_malloc(screen->vt, sizeof(ScreenCell) * pop_cols);
+      for(int col = 0; col < pop_cols; col++) {
         VTermScreenCell *src = &screen->sb_buffer[col];
         ScreenCell *dst = &cells[col];
 
@@ -876,7 +878,7 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
         dst->pen.dhl = src->attrs.dhl;
         dst->pen.protected_cell = 0;
 
-        if(src->width == 2 && col < (old_cols-1))
+        if(src->width == 2 && col < (pop_cols-1))
           (dst + 1)->chars[0] = (uint32_t) -1;
       }
 
@@ -884,7 +886,7 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
       if(REFLOW && continuation && new_row < (new_rows - 1) && new_lineinfo[new_row + 1].continuation)
         width += new_cols;
       else
-        width += line_popcount(cells, 0, 1, old_cols);
+        width += line_popcount(cells, 0, 1, pop_cols);
 
       int count = width;
       int chunk_col = 0;
@@ -901,7 +903,7 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
 
       for(int r = start_row; r <= new_row; r++) {
           for(int c = 0; c < new_cols; c++) {
-              if (chunk_col < count && chunk_col < old_cols) {
+              if (chunk_col < count && chunk_col < pop_cols) {
                  new_buffer[r * new_cols + c] = cells[chunk_col];
                  chunk_col++;
               } else {
