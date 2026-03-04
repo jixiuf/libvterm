@@ -618,6 +618,28 @@ static int screen_sb_popline(int cols, VTermScreenCell *cells, void *user)
   return 1;
 }
 
+static bool next_popline_continuation = false;
+
+static int screen_sb_popline4(int cols, VTermScreenCell *cells, bool *continuation, void *user)
+{
+  if(!want_screen_scrollback)
+    return 0;
+
+  for(int col = 0; col < cols; col++) {
+    if(col < 5)
+      cells[col].chars[0] = 'A' + col;
+    else
+      cells[col].chars[0] = 0;
+
+    cells[col].width = 1;
+  }
+
+  *continuation = next_popline_continuation;
+
+  printf("sb_popline %d cont=%d\n", cols, next_popline_continuation ? 1 : 0);
+  return 1;
+}
+
 static int screen_sb_clear(void *user)
 {
   if(!want_screen_scrollback)
@@ -633,6 +655,7 @@ VTermScreenCallbacks screen_cbs = {
   .movecursor   = movecursor,
   .settermprop  = settermprop,
   .sb_popline   = screen_sb_popline,
+  .sb_popline4  = screen_sb_popline4,
   .sb_clear     = screen_sb_clear,
   .sb_pushline4 = screen_sb_pushline4,
 };
@@ -768,6 +791,10 @@ int main(int argc, char **argv)
 
     else if(sscanf(line, "UTF8 %d", &flag)) {
       vterm_set_utf8(vt, flag);
+    }
+
+    else if(sscanf(line, "SBPOPCONT %d", &flag)) {
+      next_popline_continuation = !!flag;
     }
 
     else if(streq(line, "RESET")) {

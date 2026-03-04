@@ -1,0 +1,98 @@
+INIT
+UTF8 1
+WANTSCREEN br
+
+!Reflow to scrollback
+RESIZE 20, 3
+RESET
+PUSH "A long line that will wrap"
+# "A l"
+# "ong"
+# " li"
+# "ne "
+# "tha"
+# "t w"
+# "ill"
+# " wr"
+# "ap"
+
+?screen_row 0 = "A l"
+?screen_row 1 = "ong"
+
+RESIZE 5, 3
+sb_pushline 3 = 41 20 6C
+sb_pushline 3 cont = 6F 6E 67
+sb_pushline 3 cont = 20 6C 69
+sb_pushline 3 cont = 6E 65 20
+# Shrink height to 5.
+# We have 9 lines of content.
+# 4 lines pushed to scrollback.
+# "A l"
+# "ong"
+# " li"
+# "ne "
+# Screen has:
+# "tha"
+# "t w"
+# "ill"
+# " wr"
+# "ap"
+
+?screen_row 0 = "tha"
+?screen_row 1 = "t w"
+?screen_row 2 = "ill"
+?screen_row 3 = " wr"
+?screen_row 4 = "ap"
+
+!Reflow from scrollback
+RESET
+UTF8 1
+REFLOW 1
+WANTSCREEN b
+RESIZE 5, 5
+# Fill screen
+PUSH "FGHIJ"
+?screen_row 0 = "FGHIJ"
+# Current:
+# 0: "FGHIJ"
+# 1..4: empty
+
+RESIZE 2, 5
+?screen_row 0 = "FGHIJ"
+# Current:
+# 0: "FGHIJ"
+# 1: empty
+# (nothing pushed)
+
+# Now simulate resize where we pull from scrollback
+# We need to ensure we have room.
+RESIZE 3, 5
+sb_popline 5 cont=0
+# We should pop a line.
+# Harness returns "ABCDE"
+?screen_row 0 = "ABCDE"
+?screen_row 1 = "FGHIJ"
+
+!Reflow merge with continuation
+RESET
+UTF8 1
+REFLOW 1
+WANTSCREEN b
+RESIZE 1, 5
+PUSH "12345FGHIJ"
+sb_pushline 5 = 31 32 33 34 35
+# "12345" pushed to scrollback (height 1)
+# Screen: "FGHIJ" (continuation=1)
+
+# We want to pull "ABCDE" (actually "12345") from scrollback and merge it.
+# Harness popline returns "ABCDE" (mock).
+# We need it to match "12345"?
+# No, mock returns "ABCDE".
+# So result will be "ABCDEFGHIJ".
+SBPOPCONT 0
+RESIZE 1, 10
+  sb_popline 5 cont=0
+# Popped "ABCDE" (continuation=0 because it's start of line)
+# Merged with "FGHIJ"
+# Result: "ABCDEFGHIJ"
+?screen_row 0 = "ABCDEFGHIJ"
