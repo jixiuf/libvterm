@@ -47,8 +47,7 @@ sb_pushline 3 cont = 6E 65 20
 !Reflow from scrollback
 RESET
 UTF8 1
-REFLOW 1
-WANTSCREEN b
+WANTSCREEN br
 RESIZE 5, 5
 # Fill screen
 PUSH "FGHIJ"
@@ -76,8 +75,7 @@ sb_popline 5 cont=0
 !Reflow merge with continuation
 RESET
 UTF8 1
-REFLOW 1
-WANTSCREEN b
+WANTSCREEN br
 RESIZE 1, 5
 PUSH "12345FGHIJ"
 sb_pushline 5 = 31 32 33 34 35
