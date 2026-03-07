@@ -44,18 +44,9 @@ RESIZE 5,6
   ?cursor = 1,3
 
 !Shell wrapped prompt behaviour
-# CR now goes to logical line start (skips continuation rows)
-# LF now goes to next logical line start (skips continuation rows)
 RESET
 RESIZE 5,10
 PUSH "PROMPT GOES HERE\r\n> \r\n\r\nPROMPT GOES HERE\r\n> "
-  # After "PROMPT GOES HERE" (wraps to rows 0-1), CR goes to row 0, LF skips row 1 to row 2
-  # Then "> " at row 2, then two more LF to rows 3 and 4
-  # Then "PROMPT GOES HERE" at row 4, wraps and scrolls (row 4 has "S HERE" with cont)
-  # After scroll: row 0="S HERE"(cont), row 1="> ", row 2="", row 3="PROMPT GOE", row 4="S HERE"(cont)
-  # Then CR goes to row 3 (logical start of row 3-4), LF skips row 4 to row 5 (scrolls)
-  # After scroll: row 0="> ", row 1="", row 2="PROMPT GOE", row 3="S HERE"(cont), row 4=""
-  # Then "> " at row 4
   ?screen_row 0 = "> "
   ?screen_row 1 = ""
   ?screen_row 2 = "PROMPT GOE"
@@ -63,6 +54,29 @@ PUSH "PROMPT GOES HERE\r\n> \r\n\r\nPROMPT GOES HERE\r\n> "
   ?lineinfo 3 = cont
   ?screen_row 4 = "> "
   ?cursor = 4,2
+RESIZE 5,11
+  ?screen_row 0 = "> "
+  ?screen_row 1 = ""
+  ?screen_row 2 = "PROMPT GOES"
+  ?screen_row 3 = " HERE"
+  ?lineinfo 3 = cont
+  ?screen_row 4 = "> "
+  ?cursor = 4,2
+RESIZE 5,12
+  ?screen_row 0 = "> "
+  ?screen_row 1 = ""
+  ?screen_row 2 = "PROMPT GOES "
+  ?screen_row 3 = "HERE"
+  ?lineinfo 3 = cont
+  ?screen_row 4 = "> "
+  ?cursor = 4,2
+RESIZE 5,16
+  ?screen_row 0 = "> "
+  ?screen_row 1 = ""
+  ?screen_row 2 = "PROMPT GOES HERE"
+  ?lineinfo 3 =
+  ?screen_row 3 = "> "
+  ?cursor = 3,2
 
 !Cursor goes missing
 # For more context: https://github.com/neovim/neovim/pull/21124

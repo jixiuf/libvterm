@@ -183,57 +183,20 @@ static void scroll(VTermState *state, VTermRect rect, int downward, int rightwar
         state->callbacks->moverect, state->callbacks->erase, state->cbdata);
 }
 
-
-/* 查找当前逻辑行的首行（向上查找直到没有 continuation 标记） */
-static int find_logical_row_start(VTermState *state, int row)
-{
-  while(row > 0 && state->lineinfo[row].continuation)
-    row--;
-  return row;
-}
-
-/* 查找下一逻辑行的首行（向下查找直到没有 continuation 标记的行） */
-static int find_next_logical_row_start(VTermState *state, int row)
-{
-  /* 先移动到下一行 */
-  row++;
-  /* 如果下一行是 continuation 行，继续向下直到不是 continuation 的行 */
-  while(row < state->rows && state->lineinfo[row].continuation)
-    row++;
-  return row;
-}
-
 static void linefeed(VTermState *state)
 {
-  /* LF 移动到下一逻辑行（跳过 continuation 行） */
-  /* 传统模式下 continuation 始终为 0，所以只移动一行 */
+  if(state->pos.row == SCROLLREGION_BOTTOM(state) - 1) {
+    VTermRect rect = {
+      .start_row = state->scrollregion_top,
+      .end_row   = SCROLLREGION_BOTTOM(state),
+      .start_col = SCROLLREGION_LEFT(state),
+      .end_col   = SCROLLREGION_RIGHT(state),
+    };
 
-  /* 移动到下一逻辑行 */
-  int new_row = find_next_logical_row_start(state, state->pos.row);
-
-  /* 检查是否需要滚动：只有当光标在滚动区域内且下一行超出滚动区域时才滚动 */
-  if(state->pos.row >= state->scrollregion_top && state->pos.row < SCROLLREGION_BOTTOM(state)) {
-    if(new_row >= SCROLLREGION_BOTTOM(state)) {
-      VTermRect rect = {
-        .start_row = state->scrollregion_top,
-        .end_row   = SCROLLREGION_BOTTOM(state),
-        .start_col = SCROLLREGION_LEFT(state),
-        .end_col   = SCROLLREGION_RIGHT(state),
-      };
-      scroll(state, rect, 1, 0);
-      /* 滚动后，光标移动到滚动区域的最后一行 */
-      state->pos.row = SCROLLREGION_BOTTOM(state) - 1;
-      return;
-    }
+    scroll(state, rect, 1, 0);
   }
-
-  /* 不在滚动区域内或不需要滚动 */
-  if(new_row >= state->rows) {
-    state->pos.row = state->rows - 1;
-  }
-  else {
-    state->pos.row = new_row;
-  }
+  else if(state->pos.row < state->rows-1)
+    state->pos.row++;
 }
 
 static void grow_combine_buffer(VTermState *state)
@@ -526,11 +489,6 @@ static int on_control(unsigned char control, void *user)
   case 0x08: // BS - ECMA-48 8.3.5
     if(state->pos.col > 0)
       state->pos.col--;
-    else if(state->pos.row > 0 && state->lineinfo[state->pos.row].continuation) {
-      /* If at the start of a continuation row, move to the end of the previous row */
-      state->pos.row--;
-      state->pos.col = state->cols - 1;
-    }
     break;
 
   case 0x09: // HT - ECMA-48 8.3.60
@@ -546,10 +504,6 @@ static int on_control(unsigned char control, void *user)
     break;
 
   case 0x0d: // CR - ECMA-48 8.3.15
-    /* Move up through continuation rows to find the start of the logical line */
-    while(state->pos.row > 0 && state->lineinfo[state->pos.row].continuation) {
-      state->pos.row--;
-    }
     state->pos.col = 0;
     break;
 
@@ -567,8 +521,6 @@ static int on_control(unsigned char control, void *user)
 
   case 0x85: // NEL - ECMA-48 8.3.86
     linefeed(state);
-    /* 移动到下一逻辑行的行首 */
-    state->pos.row = find_logical_row_start(state, state->pos.row);
     state->pos.col = 0;
     break;
 
@@ -587,11 +539,8 @@ static int on_control(unsigned char control, void *user)
 
       scroll(state, rect, -1, 0);
     }
-    else if(state->pos.row > 0) {
-      state->pos.row--;
-      /* 如果上一行是 continuation，继续向上找到逻辑行首 */
-      state->pos.row = find_logical_row_start(state, state->pos.row);
-    }
+    else if(state->pos.row > 0)
+        state->pos.row--;
     break;
 
   case 0x8e: // SS2 - ECMA-48 8.3.141
