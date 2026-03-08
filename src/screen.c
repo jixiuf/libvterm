@@ -719,6 +719,17 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
         old_col++;
         if(old_col == old_cols) {
           old_row++;
+          /* Fix: Only reset old_col and continue if we haven't reached the end of the logical line
+           * If we've reached old_row_end, the current logical line has ended, stop copying */
+          if(old_row > old_row_end) {
+            /* Current logical line copying is complete, fill remaining positions with spaces
+             * Note: Need to update new_col and count first, as the current character has been copied */
+            new_col++;
+            count--;
+            old_col = 0;  /* Reset to avoid using wrong value next time */
+            old_row = old_row_end;  /* Restore old_row to avoid incorrect cursor position calculation */
+            break;
+          }
 
           if(!REFLOW) {
             new_col++;
