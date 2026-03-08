@@ -47,8 +47,10 @@ static void erase(VTermState *state, VTermRect rect, int selective)
     /* If we're erasing the final cells of any lines, cancel the continuation
      * marker on the subsequent line
      */
-    for(int row = rect.start_row + 1; row < rect.end_row + 1 && row < state->rows; row++)
+    for(int row = rect.start_row + 1; row < rect.end_row + 1 && row < state->rows; row++) {
+      fprintf(stderr, "[LIBVTERM-DEBUG] state: setting lineinfo[%d].continuation=0 (from erase)\n", row);
       state->lineinfo[row].continuation = 0;
+    }
   }
 
   if(state->callbacks && state->callbacks->erase)
@@ -112,6 +114,9 @@ INTERNAL void vterm_state_free(VTermState *state)
 
 static void scroll(VTermState *state, VTermRect rect, int downward, int rightward)
 {
+  fprintf(stderr, "[LIBVTERM-DEBUG] scroll: rect=(%d,%d)-(%d,%d), downward=%d, rightward=%d\n",
+          rect.start_row, rect.start_col, rect.end_row, rect.end_col, downward, rightward);
+
   if(!downward && !rightward)
     return;
 
@@ -413,9 +418,14 @@ static int on_text(const char bytes[], size_t len, void *user)
 #endif
 
     if(state->at_phantom || state->pos.col + width > THISROWWIDTH(state)) {
+      fprintf(stderr, "[LIBVTERM-DEBUG] state: BEFORE linefeed at cursor=(%d,%d), about to set continuation=1 atphantom=%d\n", 
+              state->pos.row, state->pos.col,state->at_phantom);
       linefeed(state);
       state->pos.col = 0;
       state->at_phantom = 0;
+      fprintf(stderr, "[LIBVTERM-DEBUG] state: AFTER linefeed, cursor now at (%d,%d), setting lineinfo[%d].continuation=1\n", 
+              state->pos.row, state->pos.col, state->pos.row);
+      fprintf(stderr, "[LIBVTERM-DEBUG] state: lineinfo array base=%p\n", (void*)state->lineinfo);
       state->lineinfo[state->pos.row].continuation = 1;
     }
 
@@ -504,6 +514,7 @@ static int on_control(unsigned char control, void *user)
     break;
 
   case 0x0d: // CR - ECMA-48 8.3.15
+    fprintf(stderr, "[LIBVTERM-DEBUG] state: CR received, cursor was at row=%d, col=%d\n", state->pos.row, state->pos.col);
     state->pos.col = 0;
     break;
 

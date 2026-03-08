@@ -529,6 +529,9 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
   int old_rows = screen->rows;
   int old_cols = screen->cols;
 
+  fprintf(stderr, "[LIBVTERM-DEBUG] resize_buffer CALLED: old_rows=%d, old_cols=%d -> new_rows=%d, new_cols=%d, reflow=%d, bufidx=%d\n",
+          old_rows, old_cols, new_rows, new_cols, screen->reflow, bufidx);
+
   ScreenCell *old_buffer = screen->buffers[bufidx];
   VTermLineInfo *old_lineinfo = statefields->lineinfos[bufidx];
 
@@ -642,6 +645,9 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
       else
         width += line_popcount(old_buffer, row, old_rows, old_cols);
     }
+
+    fprintf(stderr, "[LIBVTERM-DEBUG] resize_buffer: logical rows [%d..%d] width=%d -> new_height=%d\n",
+            old_row_start, old_row_end, width, REFLOW ? (width ? (width + new_cols - 1) / new_cols : 1) : 1);
 
     if(final_blank_row == (new_row + 1) && width == 0)
       final_blank_row = new_row;
@@ -783,6 +789,8 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
       }
       else {
         new_lineinfo[new_row].continuation = continuation;
+        fprintf(stderr, "[LIBVTERM-DEBUG] resize_buffer: new_row=%d, continuation=%d, new_row_start=%d, addr=%p\n",
+                new_row, continuation, new_row_start, (void*)&new_lineinfo[new_row]);
       }
     }
 
@@ -1316,6 +1324,9 @@ void vterm_screen_flush_damage(VTermScreen *screen)
   }
 
   if(screen->damaged.start_row != -1) {
+    fprintf(stderr, "[LIBVTERM-DEBUG] flush_damage: damaged rect (%d,%d)-(%d,%d)\n",
+            screen->damaged.start_row, screen->damaged.start_col,
+            screen->damaged.end_row, screen->damaged.end_col);
     if(screen->callbacks && screen->callbacks->damage)
       (*screen->callbacks->damage)(screen->damaged, screen->cbdata);
 
