@@ -2023,6 +2023,7 @@ static int on_resize(int rows, int cols, void *user)
 
     state->lineinfos[0] = fields.lineinfos[0];
     state->lineinfos[1] = fields.lineinfos[1];
+
   }
   else {
     if(rows != state->rows) {

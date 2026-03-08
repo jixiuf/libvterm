@@ -118,11 +118,16 @@ void vterm_set_size(VTerm *vt, int rows, int cols)
   if(rows < 1 || cols < 1)
     return;
 
+  fprintf(stderr, "[LIBVTERM-RESIZE] vterm_set_size: old=%dx%d new=%dx%d\n",
+      vt->cols, vt->rows, cols, rows);
+
   vt->rows = rows;
   vt->cols = cols;
 
   if(vt->parser.callbacks && vt->parser.callbacks->resize)
     (*vt->parser.callbacks->resize)(rows, cols, vt->parser.cbdata);
+
+  fprintf(stderr, "[LIBVTERM-RESIZE] vterm_set_size COMPLETE: new=%dx%d\n", cols, rows);
 }
 
 int vterm_get_utf8(const VTerm *vt)
