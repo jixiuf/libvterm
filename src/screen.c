@@ -564,9 +564,10 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
     int old_row_start = old_row;
 
     /* If row 0 has continuation and we're widening, try to pop from scrollback
-     * and prepend the content. Only do this if row 0 has actual content. */
+      * and prepend the content. Only do this if row 0 has actual content. */
     ScreenCell *prepend_cells = NULL;
     int prepend_width = 0;
+    int prepend_rows = 0;
     int row0_width = line_popcount(old_buffer, 0, old_rows, old_cols);
     if(REFLOW && old_row_start == 0 && old_lineinfo && old_lineinfo[0].continuation &&
        new_cols > old_cols && bufidx == BUFIDX_PRIMARY && row0_width > 0 &&
@@ -574,16 +575,19 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
         (screen->callbacks && screen->callbacks->sb_popline))) {
       bool continuation = false;
       int popped = 0;
-      if(screen->callbacks && screen->callbacks->sb_popline4)
-        popped = (*screen->callbacks->sb_popline4)(old_cols, screen->sb_buffer, &continuation, screen->cbdata);
-      else if(screen->callbacks && screen->callbacks->sb_popline)
-        popped = (*screen->callbacks->sb_popline)(old_cols, screen->sb_buffer, screen->cbdata);
+      while(old_lineinfo[0].continuation) {
+        if(screen->callbacks && screen->callbacks->sb_popline4)
+          popped = (*screen->callbacks->sb_popline4)(old_cols, screen->sb_buffer, &continuation, screen->cbdata);
+        else if(screen->callbacks && screen->callbacks->sb_popline)
+          popped = (*screen->callbacks->sb_popline)(old_cols, screen->sb_buffer, screen->cbdata);
 
-      if(popped) {
-        prepend_cells = vterm_allocator_malloc(screen->vt, sizeof(ScreenCell) * old_cols);
+        if(!popped)
+          break;
+
+        ScreenCell *new_cells = vterm_allocator_malloc(screen->vt, sizeof(ScreenCell) * old_cols);
         for(int col = 0; col < old_cols; col++) {
           VTermScreenCell *src = &screen->sb_buffer[col];
-          ScreenCell *dst = &prepend_cells[col];
+          ScreenCell *dst = &new_cells[col];
 
           for(int i = 0; i < VTERM_MAX_CHARS_PER_CELL; i++) {
             dst->chars[i] = src->chars[i];
@@ -612,10 +616,23 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
           if(src->width == 2 && col < (old_cols-1))
             (dst + 1)->chars[0] = (uint32_t) -1;
         }
-        prepend_width = line_popcount(prepend_cells, 0, 1, old_cols);
-        /* Mark row 0 as no longer continuation since we're merging with its predecessor */
-        new_lineinfo[0].continuation = false;
+
+        ScreenCell *old_prepend_cells = prepend_cells;
+        prepend_cells = vterm_allocator_malloc(screen->vt, sizeof(ScreenCell) * old_cols * (prepend_rows + 1));
+        if(old_prepend_cells) {
+          memcpy(prepend_cells + old_cols, old_prepend_cells, sizeof(ScreenCell) * old_cols * prepend_rows);
+          vterm_allocator_free(screen->vt, old_prepend_cells);
+        }
+        memcpy(prepend_cells, new_cells, sizeof(ScreenCell) * old_cols);
+        vterm_allocator_free(screen->vt, new_cells);
+
+        prepend_rows++;
+        prepend_width += line_popcount(new_cells, 0, 1, old_cols);
+
+        if(!continuation)
+          break;
       }
+      new_lineinfo[0].continuation = continuation;
     }
 
     int width = prepend_width;
